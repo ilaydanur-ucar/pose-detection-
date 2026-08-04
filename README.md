@@ -1,12 +1,7 @@
 # FormCheck
 
-Kamera görüntüsünden eklem açısı hesaplayıp egzersiz formunu değerlendiren mobil kişisel antrenör uygulaması. Fırat Üniversitesi Yazılım Mühendisliği bölümü akademik projesi.
+Kamera görüntüsünden eklem açısı hesaplayıp egzersiz formunu değerlendiren mobil kişisel antrenör uygulaması.
 
-**Karar mantığında öğrenilen model yok.** Tüm doğru/yanlış değerlendirmesi deterministik geometri (`arccos`, `atan2`) ve JSON'dan okunan eşik değerleriyle yapılır. Poz tespiti için kullanılan MediaPipe, koordinat üreten bir sensör katmanıdır — karar vermez.
-
-Bu depo, uygulamanın **Python prototipidir**: mantık (poz tespiti + açı geometrisi + kural motoru) burada kurulur ve doğrulanır. Nihai hedef mobildir; karar katmanı saf ve taşınabilir tutulduğu için aynı matematik mobil sürüme yeniden yazılabilir (bkz. `ARCHITECTURE.md` §7).
-
----
 
 ## Özellikler
 
