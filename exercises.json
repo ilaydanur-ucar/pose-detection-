@@ -1,0 +1,14 @@
+{
+  "squat": {
+    "name": "Squat",
+    "checks": [
+      {
+        "type": "JOINT",
+        "points": ["left_hip", "left_knee", "left_ankle"],
+        "min_angle": 70,
+        "max_angle": 100,
+        "message": "Dizini 90 dereceye kadar bük"
+      }
+    ]
+  }
+}
