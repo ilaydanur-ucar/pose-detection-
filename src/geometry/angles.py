@@ -9,7 +9,7 @@ Girdi olarak kendi Point tipimizi alır, derece (float) döner.
 Kamerasız, sadece NumPy ile test edilebilir.
 """
 import numpy as np
-from src.geometry.point import Point 
+from src.geometry.point import Point
 
 
 def joint_angle(a: Point, b: Point, c: Point) -> float: #type hint ile yazılmış, IDE'ler için faydalı
@@ -38,10 +38,10 @@ def joint_angle(a: Point, b: Point, c: Point) -> float: #type hint ile yazılmı
     cos_angle = dot / norm
 
     # kayan nokta hatası cos'u [-1, 1] dışına taşırabilir -> arccos NaN verir
-    # clip ile güvenli aralığa sıkıştırıyoruz 
+    # clip ile güvenli aralığa sıkıştırıyoruz
     cos_angle = np.clip(cos_angle, -1.0, 1.0)
 
-    # radyan -> derece 
+    # radyan -> derece
     return float(np.degrees(np.arccos(cos_angle)))
 
 

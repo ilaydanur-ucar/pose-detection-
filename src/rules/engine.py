@@ -5,7 +5,7 @@ evaluate() ile değerlendirilir; fark sadece exercises.json'daki veridir.
 
 Saf katman: MediaPipe/OpenCV import etmez, log yazmaz.
 """
-from src.rules.types import Exercise, CheckType
+from src.rules.types import Exercise, AngleCheck, CheckType
 from src.geometry.angles import joint_angle, vertical_angle, normalized_distance, horizontal_elevation
 from src.geometry.point import Point
 
@@ -22,6 +22,17 @@ _CHECK_HANDLERS = {
 }
 
 
+def compute_value(check: AngleCheck, points: dict[str, Point]) -> float:
+    """
+    Bir check'in ham sayısal değerini (açı/oran) hesaplar, doğru/yanlış
+    yorumu yapmaz. evaluate() bunu içeride kullanır; main.py da hesaplanan
+    değeri EKRANDA/LOGDA GÖRMEK isterse aynı fonksiyonu çağırıp kendi loglar
+    (CLAUDE.md loglama kuralı 2 — bu dosya sessiz kalır, log çağıran tarafta).
+    """
+    pts = [points[name] for name in check.points]
+    return _CHECK_HANDLERS[check.type](pts)
+
+
 def evaluate(points: dict[str, Point], exercise: Exercise) -> list[str]:
     """
     points: {"left_hip": Point(...), "left_knee": Point(...), ...}
@@ -30,8 +41,7 @@ def evaluate(points: dict[str, Point], exercise: Exercise) -> list[str]:
     violations = []
 
     for check in exercise.checks:
-        pts = [points[name] for name in check.points]
-        angle = _CHECK_HANDLERS[check.type](pts)
+        angle = compute_value(check, points)
 
         if angle < check.min_angle:
             violations.append(check.low_message or check.message)

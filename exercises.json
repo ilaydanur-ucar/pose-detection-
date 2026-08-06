@@ -8,6 +8,13 @@
         "min_angle": 70,
         "max_angle": 100,
         "message": "Bend your knee to about 90 degrees"
+      },
+      {
+        "type": "VERTICAL",
+        "points": ["left_shoulder", "left_hip"],
+        "min_angle": 0,
+        "max_angle": 40,
+        "message": "Keep your back straight, chest up"
       }
     ]
   },

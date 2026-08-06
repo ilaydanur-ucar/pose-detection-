@@ -20,7 +20,7 @@ from src.pose.hand_processor import HandProcessor, HAND_CONNECTIONS
 from src.geometry.angles import joint_angle
 from src.geometry.point import Point
 from src.rules.types import Exercise, AngleCheck, CheckType
-from src.rules.engine import evaluate
+from src.rules.engine import evaluate, compute_value
 
 setup_logging(level=logging.DEBUG)  # kept at DEBUG for now (team decision) — revisit later
 logger = logging.getLogger(__name__)
@@ -290,6 +290,15 @@ def main():
                     draw_text(frame, "Calculation error", (20, 70), color=(0, 0, 255))
                 else:
                     logger.debug("Exercise=%s violations=%s", current_key, violations)
+                    # Per-check raw math output — same values evaluate() used
+                    # internally, recomputed here just for visibility (CLAUDE.md
+                    # logging rule 2: geometry/rules stay silent, the caller logs).
+                    for check in exercise.checks:
+                        value = compute_value(check, points)
+                        logger.debug(
+                            "  %s%s = %.1f  (range [%s, %s])",
+                            check.type.value, check.points, value, check.min_angle, check.max_angle,
+                        )
                     draw_exercise_checks(frame, exercise, points, width)
                     if violations:
                         draw_text(frame, violations[0], (20, 70), color=(0, 0, 255))

@@ -4,7 +4,7 @@ MediaPipe/OpenCV gerektirmez (CLAUDE.md: rules/ testleri kamerasız).
 """
 from src.geometry.point import Point
 from src.rules.types import CheckType, AngleCheck, Exercise
-from src.rules.engine import evaluate, _CHECK_HANDLERS
+from src.rules.engine import evaluate, compute_value, _CHECK_HANDLERS
 
 
 def make_exercise(check_type, points, min_angle, max_angle, message="ihlal"):
@@ -24,6 +24,23 @@ class TestJointCheck:
         ex = make_exercise(CheckType.JOINT, ["a", "b", "c"], 80, 100, message="dizini buk")
         pts = {"a": Point(0, 0), "b": Point(10, 0), "c": Point(20, 0)}  # 180 derece
         assert evaluate(pts, ex) == ["dizini buk"]
+
+
+class TestComputeValue:
+    """compute_value() evaluate()'in icinde kullandigi ayni hesaplamayi
+    disariya (ornegin main.py'nin debug loglamasi icin) acar."""
+
+    def test_returns_same_number_evaluate_uses_internally(self):
+        check = AngleCheck(type=CheckType.JOINT, points=["a", "b", "c"], min_angle=80, max_angle=100, message="x")
+        pts = {"a": Point(0, 10), "b": Point(0, 0), "c": Point(10, 0)}
+        assert compute_value(check, pts) == 90.0
+
+    def test_does_not_judge_pass_fail_just_returns_the_number(self):
+        # 180 derece, esikleri (80-100) asiyor ama compute_value bunu
+        # yorumlamiyor -- ham degeri donuyor, evaluate() karar veriyor.
+        check = AngleCheck(type=CheckType.JOINT, points=["a", "b", "c"], min_angle=80, max_angle=100, message="x")
+        pts = {"a": Point(0, 0), "b": Point(10, 0), "c": Point(20, 0)}
+        assert compute_value(check, pts) == 180.0
 
 
 class TestVerticalCheck:
