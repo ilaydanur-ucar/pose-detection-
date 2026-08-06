@@ -52,6 +52,35 @@ class TestDistanceCheck:
         assert evaluate(pts, ex) == ["too close"]
 
 
+class TestElevationCheck:
+    """T-pose gibi 'yataya göre yön belirtmeli' kontroller için (ELEVATION
+    CheckType) — vertical_angle'ın çözemediği yön-ayrımı gereken durum."""
+
+    def _tpose_arm_check(self):
+        return AngleCheck(
+            type=CheckType.ELEVATION, points=["shoulder", "wrist"],
+            min_angle=-15, max_angle=15, message="adjust",
+            low_message="raise it", high_message="lower it",
+        )
+
+    def test_horizontal_within_range_no_violation(self):
+        ex = Exercise(name="t", checks=[self._tpose_arm_check()])
+        pts = {"shoulder": Point(0, 0), "wrist": Point(50, 0)}  # tam yatay
+        assert evaluate(pts, ex) == []
+
+    def test_arm_too_low_triggers_low_message(self):
+        ex = Exercise(name="t", checks=[self._tpose_arm_check()])
+        pts = {"shoulder": Point(0, 0), "wrist": Point(50, 40)}  # bilek asagida
+        assert evaluate(pts, ex) == ["raise it"]
+
+    def test_arm_too_high_triggers_high_message(self):
+        # eski VERTICAL tabanli check'te bu durum HICBIR ZAMAN yakalanamiyordu
+        # (yon bilgisi abs() ile atiliyordu) -- bu regresyon testi o bug'i kilitliyor.
+        ex = Exercise(name="t", checks=[self._tpose_arm_check()])
+        pts = {"shoulder": Point(0, 0), "wrist": Point(50, -40)}  # bilek yukarida
+        assert evaluate(pts, ex) == ["lower it"]
+
+
 class TestMultipleChecks:
     def test_collects_all_violations_in_order(self):
         ex = Exercise(

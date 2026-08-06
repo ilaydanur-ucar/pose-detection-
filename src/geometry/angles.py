@@ -72,6 +72,31 @@ def vertical_angle(from_point: Point, to_point: Point) -> float:
     return float(np.degrees(angle_rad))
 
 
+def horizontal_elevation(from_point: Point, to_point: Point) -> float:
+    """
+    from -> to çizgisinin YATAYA göre YÖNLÜ (signed) yükseklik açısı, [-90, 90].
+
+    +90° = to_point tam yukarıda (örn. bilek omzun üstünde, overhead)
+      0° = tam yatay (örn. T-pose'ta kol)
+    -90° = to_point tam aşağıda
+
+    vertical_angle'dan farkı: bu fonksiyon YÖNÜ atmıyor (abs almıyor).
+    Hedefin yatayın üstünde mi altında mı olduğunu ayırt etmen gerekiyorsa
+    (örn. T-pose'ta "kolunu indir" ile "kolunu kaldır" farklı mesajlarsa)
+    vertical_angle yetmez, çünkü o [0,90] aralığına sıkıştırıp yön bilgisini
+    atıyor — bunun yerine bu fonksiyon kullanılır.
+    """
+    dx = to_point.x - from_point.x
+    dy = to_point.y - from_point.y  # piksel: aşağı +, yukarı -
+
+    # -dy: yukarıyı pozitif yapar (piksel ekseni ters, doğal "yükseklik"
+    # hissi için çeviriyoruz). abs(dx): sağ/sol kol farkı sonucu etkilemesin,
+    # sadece yükseklik yönü (yukarı/aşağı) korunsun.
+    angle_rad = np.arctan2(-dy, abs(dx))
+
+    return float(np.degrees(angle_rad))
+
+
 def distance(a: Point, b: Point) -> float:
     """Euclidean distance between two points (pixels)."""
     return float(np.linalg.norm([a.x - b.x, a.y - b.y]))

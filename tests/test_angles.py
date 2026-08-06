@@ -2,7 +2,7 @@
 geometry/angles.py testleri — kamerasız, saf fonksiyon testleri.
 MediaPipe/OpenCV gerektirmez (CLAUDE.md: geometry/ testleri kamerasız).
 """
-from src.geometry.angles import joint_angle, vertical_angle, distance, normalized_distance
+from src.geometry.angles import joint_angle, vertical_angle, distance, normalized_distance, horizontal_elevation
 from src.geometry.point import Point
 
 
@@ -56,6 +56,32 @@ class TestVerticalAngle:
         below = vertical_angle(Point(0, 0), Point(5, 10))   # hedef altta
         above = vertical_angle(Point(0, 0), Point(5, -10))  # hedef üstte
         assert below == above
+
+
+class TestHorizontalElevation:
+    def test_horizontal_line_is_zero(self):
+        # to_point ayni yukseklikte (dy=0) -> tam yatay -> 0 derece
+        assert horizontal_elevation(Point(0, 0), Point(10, 0)) == 0.0
+
+    def test_target_above_is_positive_ninety(self):
+        # to_point tam ustte (dx=0, dy<0) -> +90 derece
+        assert horizontal_elevation(Point(0, 100), Point(0, 0)) == 90.0
+
+    def test_target_below_is_negative_ninety(self):
+        # to_point tam altta (dx=0, dy>0) -> -90 derece
+        assert horizontal_elevation(Point(0, 0), Point(0, 100)) == -90.0
+
+    def test_above_and_below_have_opposite_sign(self):
+        # vertical_angle'dan farki: yon bilgisi korunuyor, atilmiyor
+        above = horizontal_elevation(Point(0, 0), Point(5, -10))
+        below = horizontal_elevation(Point(0, 0), Point(5, 10))
+        assert above == -below
+
+    def test_left_right_independent(self):
+        # abs(dx) kullanildigi icin kolun sag/sol tarafta olmasi sonucu etkilemez
+        right = horizontal_elevation(Point(0, 0), Point(10, -5))
+        left = horizontal_elevation(Point(0, 0), Point(-10, -5))
+        assert right == left
 
 
 class TestDistance:

@@ -6,18 +6,19 @@ evaluate() ile değerlendirilir; fark sadece exercises.json'daki veridir.
 Saf katman: MediaPipe/OpenCV import etmez, log yazmaz.
 """
 from src.rules.types import Exercise, CheckType
-from src.geometry.angles import joint_angle, vertical_angle, normalized_distance
+from src.geometry.angles import joint_angle, vertical_angle, normalized_distance, horizontal_elevation
 from src.geometry.point import Point
 
 # Strategy pattern: how each CheckType turns into a number (angle/ratio)
 # lives here, in a single dict (OCP — ARCHITECTURE.md §3). Adding a new
 # check type never requires changing evaluate(), only a line here.
-# Point-count contract per type: JOINT=3, VERTICAL=2, DISTANCE=4
+# Point-count contract per type: JOINT=3, VERTICAL=2, DISTANCE=4, ELEVATION=2
 # (DISTANCE: pts[0]-pts[1] measured, pts[2]-pts[3] reference for scaling).
 _CHECK_HANDLERS = {
     CheckType.JOINT: lambda pts: joint_angle(pts[0], pts[1], pts[2]),
     CheckType.VERTICAL: lambda pts: vertical_angle(pts[0], pts[1]),
     CheckType.DISTANCE: lambda pts: normalized_distance(pts[0], pts[1], pts[2], pts[3]),
+    CheckType.ELEVATION: lambda pts: horizontal_elevation(pts[0], pts[1]),
 }
 
 
