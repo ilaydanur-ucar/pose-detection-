@@ -1,10 +1,9 @@
 """
-Giriş noktası — kol açısı ısınma testi + Squat kontrolü.
+Entry point — generic multi-exercise pipeline (camera -> MediaPipe -> Point ->
+geometry -> rules -> screen). No exercise-specific code here (OCP,
+ARCHITECTURE.md §3): every exercise is driven entirely by exercises.json.
 
-Amaç: boru hattının (kamera -> MediaPipe -> Point -> geometry -> rules -> ekran)
-uçtan uca çalıştığını doğrulamak. Kol açısı üstte, Squat kontrolü altta.
-
-Çalıştır: python main.py   |   Çık: pencere seçiliyken 'q'
+Run: python main.py | Keys 1-6 switch exercise | 'q' quits
 """
 import json
 import logging
@@ -13,193 +12,268 @@ import cv2
 from src.logging_config import setup_logging
 from src.pose.processor import (
     PoseProcessor,
-    LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST,
-    LEFT_HIP, LEFT_KNEE, LEFT_ANKLE,
-    RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST,
+    LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST, LEFT_HIP, LEFT_KNEE, LEFT_ANKLE,
+    RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST, RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE,
 )
+from src.pose.hand_processor import HandProcessor, HAND_CONNECTIONS
 from src.geometry.angles import joint_angle
 from src.geometry.point import Point
 from src.rules.types import Exercise, AngleCheck, CheckType
 from src.rules.engine import evaluate
 
-setup_logging(level=logging.DEBUG)  # GEÇİCİ — teşhis bitince INFO'ya geri al
+setup_logging(level=logging.DEBUG)  # kept at DEBUG for now (team decision) — revisit later
 logger = logging.getLogger(__name__)
 
+EXERCISE_KEYS = ["squat", "chair_pose", "plank", "planor", "tree_pose", "bridge"]
 
-def load_exercise(json_path: str, key: str) -> Exercise:
-    """exercises.json'dan bir egzersizi okuyup Exercise nesnesine çevirir."""
+# Single place mapping exercises.json point names to MediaPipe landmark
+# indices (DRY) — reuses the indices already defined in processor.py.
+NAME_TO_INDEX = {
+    "left_shoulder": LEFT_SHOULDER, "right_shoulder": RIGHT_SHOULDER,
+    "left_elbow": LEFT_ELBOW, "right_elbow": RIGHT_ELBOW,
+    "left_wrist": LEFT_WRIST, "right_wrist": RIGHT_WRIST,
+    "left_hip": LEFT_HIP, "right_hip": RIGHT_HIP,
+    "left_knee": LEFT_KNEE, "right_knee": RIGHT_KNEE,
+    "left_ankle": LEFT_ANKLE, "right_ankle": RIGHT_ANKLE,
+}
+
+
+def load_exercises(json_path: str) -> dict[str, Exercise]:
+    """Loads every exercise entry from exercises.json into Exercise objects."""
     with open(json_path, encoding="utf-8") as f:
-        data = json.load(f)[key]
-    checks = [
-        AngleCheck(
-            type=CheckType(c["type"]),
-            points=c["points"],
-            min_angle=c["min_angle"],
-            max_angle=c["max_angle"],
-            message=c["message"],
-        )
-        for c in data["checks"]
-    ]
-    return Exercise(name=data["name"], checks=checks)
+        raw = json.load(f)
+    exercises = {}
+    for key, data in raw.items():
+        checks = [
+            AngleCheck(
+                type=CheckType(c["type"]),
+                points=c["points"],
+                min_angle=c["min_angle"],
+                max_angle=c["max_angle"],
+                message=c["message"],
+            )
+            for c in data["checks"]
+        ]
+        exercises[key] = Exercise(name=data["name"], checks=checks)
+    return exercises
 
 
-# Yazı, nokta ve çizgi çizimi için yardımcı fonksiyonlar (DRY — aynı
-# "siyah kontur + renkli üst katman" tekniği hepsinde tekrar kullanılıyor,
-# açık/çizgili zeminde bile okunur olsun diye).
+# Drawing helpers (DRY — same "black outline + colored fill" trick everywhere
+# so text/points/lines stay readable over any background).
 
 def draw_text(frame, text, pos, color=(0, 255, 0)):
-    """Okunaklı yazı: önce kalın siyah kontur, sonra üstüne ince renkli yazı."""
-    cv2.putText(frame, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 5)
-    cv2.putText(frame, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+    cv2.putText(frame, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 5)
+    cv2.putText(frame, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
 
 def draw_point(frame, p, color=(0, 255, 0)):
-    """Okunaklı nokta: siyah kenarlıklı, üstünde küçük renkli daire."""
     cv2.circle(frame, (int(p.x), int(p.y)), 8, (0, 0, 0), -1)
     cv2.circle(frame, (int(p.x), int(p.y)), 6, color, -1)
 
 
 def draw_line(frame, p1, p2, color=(0, 255, 0)):
-    """İki nokta arasına kalın çizgi çizer — kol/gövde 'iskeleti' için."""
-    pt1 = (int(p1.x), int(p1.y))
-    pt2 = (int(p2.x), int(p2.y))
-    cv2.line(frame, pt1, pt2, (0, 0, 0), 6)      # siyah kontur (kalın)
-    cv2.line(frame, pt1, pt2, color, 3)          # renkli üst katman (ince)
+    pt1, pt2 = (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y))
+    cv2.line(frame, pt1, pt2, (0, 0, 0), 6)      # black outline (thick)
+    cv2.line(frame, pt1, pt2, color, 3)          # colored fill (thin)
 
 
 def mirror_point(p: Point, frame_width: int) -> Point:
     """
-    Bir noktayı yatayda aynalar. SADECE çizimden önce, gösterim amacıyla
-    kullanılır (CLAUDE.md: aynalama yalnızca çizim/OpenCV katmanında olur,
-    geometry/'ye asla sızmaz). MediaPipe'a HAM/aynalanmamış kare verildiği
-    için açı hesapları bu fonksiyondan önce, orijinal noktalarla yapılmalı.
+    Mirrors a point horizontally. Used ONLY right before drawing (CLAUDE.md:
+    mirroring only happens in the drawing/OpenCV layer, never leaks into
+    geometry/). MediaPipe is given the RAW/unmirrored frame, so angle
+    calculations must happen before this call, on the original points.
     """
     return Point(x=frame_width - p.x, y=p.y)
+
+
+def collect_points(processor, landmarks, names, width, height):
+    """
+    Collects every point an exercise's checks need.
+    Returns (points, missing): points is a name->Point dict, or None if any
+    requested name wasn't visible enough; missing is the list of point names
+    that failed visibility (empty when points is not None).
+    """
+    points = {}
+    missing = []
+    for name in names:
+        index = NAME_TO_INDEX[name]
+        if not processor.is_visible(landmarks, index):
+            missing.append(name)
+            continue
+        points[name] = processor.get_point(landmarks, index, width, height)
+    if missing:
+        return None, missing
+    return points, []
+
+
+def draw_exercise_checks(frame, exercise: Exercise, points: dict, width: int):
+    """
+    Generic skeleton drawing: connects each check's own points, mirrored for
+    display. DISTANCE checks draw two separate segments (measured pair +
+    reference pair) instead of one connected chain — the four points aren't
+    meant to form a path.
+    """
+    for check in exercise.checks:
+        pts_d = [mirror_point(points[name], width) for name in check.points]
+        if check.type == CheckType.DISTANCE:
+            draw_line(frame, pts_d[0], pts_d[1])
+            draw_line(frame, pts_d[2], pts_d[3])
+        else:
+            for a, b in zip(pts_d, pts_d[1:]):
+                draw_line(frame, a, b)
+        for p in pts_d:
+            draw_point(frame, p)
 
 
 def draw_arm(frame, processor, landmarks, width, height,
              shoulder_i, elbow_i, wrist_i, label, color, fallback_pos):
     """
-    Bir kolu (SOL ya da SAĞ) bağımsız olarak değerlendirip çizer.
-    DRY: iki taraf için de aynı mantık, sadece landmark index'leri farklı.
+    Standalone upper-body sanity check, independent of the selected exercise
+    (all 6 exercises need leg landmarks, so none of them draw anything while
+    only the upper body is in frame — this lets you verify the pipeline from
+    a desk/webcam without standing back). DRY: same logic for both arms,
+    only the landmark indices differ.
     """
     visible = all(processor.is_visible(landmarks, i) for i in (shoulder_i, elbow_i, wrist_i))
     if not visible:
-        logger.debug("%s KOL CIZILMIYOR: gorunur degil", label)
-        draw_text(frame, f"{label} kol net gorunmuyor", fallback_pos, color=(0, 0, 255))
+        draw_text(frame, f"{label} arm not clearly visible", fallback_pos, color=(0, 0, 255))
         return
 
     shoulder = processor.get_point(landmarks, shoulder_i, width, height)
     elbow = processor.get_point(landmarks, elbow_i, width, height)
     wrist = processor.get_point(landmarks, wrist_i, width, height)
-
     angle = joint_angle(shoulder, elbow, wrist)
-    logger.debug(
-        "%s KOL CIZILIYOR: shoulder=(%.0f,%.0f) elbow=(%.0f,%.0f) wrist=(%.0f,%.0f) angle=%.0f",
-        label, shoulder.x, shoulder.y, elbow.x, elbow.y, wrist.x, wrist.y, angle,
-    )
 
-    # Çizimden hemen önce aynala — frame de flip edilmiş durumda
     shoulder_d = mirror_point(shoulder, width)
     elbow_d = mirror_point(elbow, width)
     wrist_d = mirror_point(wrist, width)
 
     draw_line(frame, shoulder_d, elbow_d, color)
     draw_line(frame, elbow_d, wrist_d, color)
-    draw_text(frame, f"{label} {angle:.0f} derece", (int(elbow_d.x), int(elbow_d.y) - 20), color)
+    draw_text(frame, f"{label} {angle:.0f} deg", fallback_pos, color)
     for p in (shoulder_d, elbow_d, wrist_d):
         draw_point(frame, p, color)
 
 
+def draw_hand(frame, hand_processor: HandProcessor, hand_landmarks, width, height, label, color=(0, 220, 220)):
+    """
+    Draws a detected hand's full 21-point skeleton (wrist + fingers), mirrored
+    for display — same "compute raw, mirror before drawing" rule as the body.
+    Purely visual for now (see hand_processor.py docstring).
+    """
+    pts_d = [
+        mirror_point(hand_processor.get_point(hand_landmarks, i, width, height), width)
+        for i in range(21)
+    ]
+    for a, b in HAND_CONNECTIONS:
+        draw_line(frame, pts_d[a], pts_d[b], color)
+    for p in pts_d:
+        draw_point(frame, p, color)
+    draw_text(frame, f"{label} hand", (int(pts_d[0].x) - 20, int(pts_d[0].y) + 30), color)
+
+
 def main():
-    processor = PoseProcessor()  # processor.py içinde model_complexity=2 var (daha doğru koordinat)
-    squat = load_exercise("exercises.json", "squat")
+    processor = PoseProcessor()  # model_complexity=2 in processor.py (more accurate coordinates)
+    hand_processor = HandProcessor()
+    exercises = load_exercises("exercises.json")
+    current_key = EXERCISE_KEYS[0]
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        logger.error("Kamera açılamadı")
+        logger.error("Could not open camera")
         return
 
-    logger.info("Kamera açıldı, test başlıyor (çıkmak için 'q')")
+    logger.info("Camera opened. Keys 1-%d switch exercise, 'q' quits", len(EXERCISE_KEYS))
 
     while True:
         ok, frame = cap.read()
         if not ok:
-            logger.warning("Kare okunamadı")
+            logger.warning("Could not read frame")
             break
 
-        # KÖK NEDEN BULUNDU: flip'i MediaPipe'tan ÖNCE yapmak, modelin anatomik
-        # sol/sağ etiketlerini tutarlı biçimde ters çeviriyordu (aynalanmış bir
-        # bedenin görsel anatomisi model için ters okunuyor). Çözüm: MediaPipe'a
-        # HAM kareyi ver (doğru etiketleme), flip'i sadece gösterim için EN SONA,
-        # noktalar hesaplandıktan sonra uygula (mirror_point ile).
+        # ROOT CAUSE FIXED: flipping BEFORE MediaPipe consistently reversed
+        # the model's anatomical left/right labels (a mirrored body reads
+        # backwards to the model). Fix: give MediaPipe the RAW frame (correct
+        # labeling), flip only for display at the very end, after points are
+        # computed (via mirror_point).
 
-        # MediaPipe RGB bekler, OpenCV BGR verir -> çevir
+        # MediaPipe expects RGB, OpenCV gives BGR -> convert
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         height, width = frame.shape[:2]
 
         landmarks = processor.process(frame_rgb, width, height)
+        hands = hand_processor.process(frame_rgb)  # independent of body detection
 
-        frame = cv2.flip(frame, 1)   # yatay ayna düzeltmesi — SADECE gösterim için
+        frame = cv2.flip(frame, 1)   # horizontal mirror fix — display only
+
+        exercise = exercises[current_key]
+        draw_text(frame, f"[{current_key}] {exercise.name}", (20, 30), (255, 255, 0))
+
+        # Always-on hand skeletons (visual only, doesn't need a body match).
+        for label, hand_landmarks in hands:
+            draw_hand(frame, hand_processor, hand_landmarks, width, height, label)
 
         if landmarks is not None:
-            # GEÇİCİ TEŞHİS — sol/sağ karışması + neden hiç çizilmediğini bulmak için.
-            # x_px artık HAM (aynalanmamış) kareye göre — SOL landmark'ın x'i küçükse
-            # (ekranın sol tarafı, flip'ten önceki ham görüntüde) etiketleme doğrudur.
+            # Diagnostic — kept for now per team decision, to check from here
+            # if a left/right mixup ever reappears. Remove once confirmed
+            # stable across all 6 exercises.
             for name, idx in [
-                ("SOL  omuz ", LEFT_SHOULDER), ("SOL  dirsek", LEFT_ELBOW), ("SOL  bilek ", LEFT_WRIST),
-                ("SAG  omuz ", RIGHT_SHOULDER), ("SAG  dirsek", RIGHT_ELBOW), ("SAG  bilek ", RIGHT_WRIST),
+                ("LEFT  shoulder", LEFT_SHOULDER), ("LEFT  elbow", LEFT_ELBOW), ("LEFT  wrist", LEFT_WRIST),
+                ("RIGHT shoulder", RIGHT_SHOULDER), ("RIGHT elbow", RIGHT_ELBOW), ("RIGHT wrist", RIGHT_WRIST),
             ]:
                 lm = landmarks.landmark[idx]
                 px = lm.x * width
-                taraf = "sol-yarida" if px < width / 2 else "sag-yarida"
-                logger.debug("%s idx=%2d  vis=%.2f  x_px=%6.1f (%s)", name, idx, lm.visibility, px, taraf)
+                side = "left-half" if px < width / 2 else "right-half"
+                logger.debug("%s idx=%2d vis=%.2f x_px=%6.1f (%s)", name, idx, lm.visibility, px, side)
 
-            # --- Kol açısı (ısınma testi) — SOL ve SAĞ bağımsız, ikisi de çizilir ---
+            # Always-on upper-body sanity check (see draw_arm docstring) —
+            # draws regardless of which exercise is selected or visible.
             draw_arm(frame, processor, landmarks, width, height,
                      LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST,
-                     "SOL", (0, 255, 0), (20, 70))
+                     "LEFT", (0, 255, 0), (20, 100))
             draw_arm(frame, processor, landmarks, width, height,
                      RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST,
-                     "SAG", (255, 165, 0), (20, 100))
+                     "RIGHT", (255, 165, 0), (20, 130))
 
-            # --- Squat kontrolü ---
-            squat_visible = all(
-                processor.is_visible(landmarks, i)
-                for i in (LEFT_HIP, LEFT_KNEE, LEFT_ANKLE)
-            )
-            if squat_visible:
-                points = {
-                    "left_hip": processor.get_point(landmarks, LEFT_HIP, width, height),
-                    "left_knee": processor.get_point(landmarks, LEFT_KNEE, width, height),
-                    "left_ankle": processor.get_point(landmarks, LEFT_ANKLE, width, height),
-                }
-                violations = evaluate(points, squat)
+            needed_names = {n for c in exercise.checks for n in c.points}
+            points, missing = collect_points(processor, landmarks, needed_names, width, height)
 
-                # Çizimden hemen önce aynala — frame de flip edilmiş durumda
-                points_d = {name: mirror_point(p, width) for name, p in points.items()}
-                draw_line(frame, points_d["left_hip"], points_d["left_knee"])
-                draw_line(frame, points_d["left_knee"], points_d["left_ankle"])
-                for p in points_d.values():
-                    draw_point(frame, p)
-
-                if violations:
-                    logger.debug("Squat ihlalleri: %s", violations)
-                    draw_text(frame, violations[0], (20, 140), color=(0, 0, 255))
+            if points is not None:
+                try:
+                    violations = evaluate(points, exercise)
+                except KeyError as e:
+                    logger.error(
+                        "Evaluation error: exercise=%s missing_key=%s", current_key, e
+                    )
+                    draw_text(frame, "Calculation error", (20, 70), color=(0, 0, 255))
                 else:
-                    draw_text(frame, "Squat DOGRU", (20, 140), color=(0, 255, 0))
+                    logger.debug("Exercise=%s violations=%s", current_key, violations)
+                    draw_exercise_checks(frame, exercise, points, width)
+                    if violations:
+                        draw_text(frame, violations[0], (20, 70), color=(0, 0, 255))
+                    else:
+                        draw_text(frame, "CORRECT", (20, 70), color=(0, 255, 0))
             else:
-                draw_text(frame, "Bacak net gorunmuyor", (20, 170), color=(0, 0, 255))
+                logger.debug("Missing landmarks: %s", missing)
+                draw_text(frame, f"Not visible: {', '.join(missing)}", (20, 70), color=(0, 0, 255))
         else:
-            draw_text(frame, "Vucut bulunamadi", (20, 40), color=(0, 0, 255))
+            logger.warning("No pose landmarks detected in this frame")
+            draw_text(frame, "Body not detected", (20, 40), color=(0, 0, 255))
 
         cv2.imshow("FormCheck", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
             break
+        for i, ex_key in enumerate(EXERCISE_KEYS, start=1):
+            if key == ord(str(i)):
+                current_key = ex_key
+                logger.info("Exercise switched: %s", current_key)
+                break
 
     cap.release()
     cv2.destroyAllWindows()
-    logger.info("Kapatıldı")
+    logger.info("Closed")
 
 
 if __name__ == "__main__":

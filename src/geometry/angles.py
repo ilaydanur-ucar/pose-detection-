@@ -59,6 +59,19 @@ def vertical_angle(from_point: Point, to_point: Point) -> float:
 
     # atan2(dx, dy): dy'yi referans (dikey eksen) alarak dx sapmasının açısı
     # dy'yi ilk argüman değil ikinci argüman yapmak, 0°'yi "dikey" tanımlar
-    angle_rad = np.arctan2(dx, dy) 	#iki koordinattan, güvenli ve yön-bilgili şekilde açı üretir 
+    angle_rad = np.arctan2(dx, dy) 	#iki koordinattan, güvenli ve yön-bilgili şekilde açı üretir
 
     return float(np.degrees(np.abs(angle_rad)))
+
+
+def distance(a: Point, b: Point) -> float:
+    """Euclidean distance between two points (pixels)."""
+    return float(np.linalg.norm([a.x - b.x, a.y - b.y]))
+
+
+def normalized_distance(a: Point, b: Point, ref_a: Point, ref_b: Point) -> float:
+    """Distance A-B scaled by reference distance ref_a-ref_b. Gives a
+    consistent value regardless of how close/far the person is from the
+    camera (e.g. foot-to-knee distance scaled by shoulder width)."""
+    ref = distance(ref_a, ref_b)
+    return distance(a, b) / ref if ref else 0.0

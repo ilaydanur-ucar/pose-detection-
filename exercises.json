@@ -7,8 +7,49 @@
         "points": ["left_hip", "left_knee", "left_ankle"],
         "min_angle": 70,
         "max_angle": 100,
-        "message": "Dizini 90 dereceye kadar bük"
+        "message": "Bend your knee to about 90 degrees"
       }
+    ]
+  },
+  "chair_pose": {
+    "name": "Chair Pose",
+    "checks": [
+      { "type": "JOINT", "points": ["left_hip", "left_knee", "left_ankle"], "min_angle": 90, "max_angle": 130, "message": "Bend your knees, like sitting in a chair" },
+      { "type": "VERTICAL", "points": ["left_shoulder", "left_hip"], "min_angle": 15, "max_angle": 35, "message": "Lean your torso slightly forward, tilt pelvis forward" },
+      { "type": "JOINT", "points": ["left_shoulder", "left_elbow", "left_wrist"], "min_angle": 165, "max_angle": 180, "message": "Keep your arms straight" },
+      { "type": "VERTICAL", "points": ["left_shoulder", "left_wrist"], "min_angle": 0, "max_angle": 30, "message": "Raise your arms up, near ear level" },
+      { "type": "DISTANCE", "points": ["left_ankle", "right_ankle", "left_hip", "right_hip"], "min_angle": 0.8, "max_angle": 1.3, "message": "Open your feet to hip-width apart" }
+    ]
+  },
+  "plank": {
+    "name": "Plank (forearm)",
+    "checks": [
+      { "type": "JOINT", "points": ["left_shoulder", "left_hip", "left_ankle"], "min_angle": 160, "max_angle": 180, "message": "Keep your back straight, don't sag or raise your hips" },
+      { "type": "JOINT", "points": ["left_shoulder", "left_elbow", "left_wrist"], "min_angle": 70, "max_angle": 100, "message": "Bring elbows under shoulders, rest on forearms" }
+    ]
+  },
+  "planor": {
+    "name": "Planor",
+    "checks": [
+      { "type": "JOINT", "points": ["left_shoulder", "left_hip", "left_ankle"], "min_angle": 160, "max_angle": 180, "message": "Keep your torso and standing leg straight" },
+      { "type": "VERTICAL", "points": ["left_shoulder", "left_hip"], "min_angle": 70, "max_angle": 110, "message": "Bring your torso parallel to the ground" },
+      { "type": "JOINT", "points": ["right_hip", "right_knee", "right_ankle"], "min_angle": 160, "max_angle": 180, "message": "Extend your back leg straight" },
+      { "type": "JOINT", "points": ["left_shoulder", "left_elbow", "left_wrist"], "min_angle": 160, "max_angle": 180, "message": "Extend your arms straight forward" }
+    ]
+  },
+  "tree_pose": {
+    "name": "Tree Pose",
+    "checks": [
+      { "type": "JOINT", "points": ["left_hip", "left_knee", "left_ankle"], "min_angle": 165, "max_angle": 180, "message": "Keep your standing leg straight" },
+      { "type": "DISTANCE", "points": ["right_ankle", "left_knee", "left_shoulder", "right_shoulder"], "min_angle": 0.15, "max_angle": 0.35, "message": "Rest your foot on your thigh, not on the knee joint" },
+      { "type": "DISTANCE", "points": ["left_wrist", "right_wrist", "left_shoulder", "right_shoulder"], "min_angle": 0, "max_angle": 0.15, "message": "Bring your hands together at chest level" }
+    ]
+  },
+  "bridge": {
+    "name": "Bridge",
+    "checks": [
+      { "type": "JOINT", "points": ["left_shoulder", "left_hip", "left_knee"], "min_angle": 160, "max_angle": 180, "message": "Lift your hips, form a straight line shoulder-hip-knee" },
+      { "type": "JOINT", "points": ["left_hip", "left_knee", "left_ankle"], "min_angle": 80, "max_angle": 100, "message": "Bring your knees to 90 degrees" }
     ]
   }
 }

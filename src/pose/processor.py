@@ -16,10 +16,15 @@ LEFT_HIP = 23
 LEFT_KNEE = 25
 LEFT_ANKLE = 27
 
-# GEÇİCİ TEŞHİS — sol/sağ karışması ihtimalini test etmek için
+# Sağ kol için — main.py'de SAĞ kol çiziminde kullanılıyor (geçici değil)
 RIGHT_SHOULDER = 12
 RIGHT_ELBOW = 14
 RIGHT_WRIST = 16
+
+# EKLENDİ — planor/chair_pose/tree_pose sağ bacağı için
+RIGHT_HIP = 24
+RIGHT_KNEE = 26
+RIGHT_ANKLE = 28
 
 VISIBILITY_THRESHOLD = 0.6   # 0.45 denendi, gerçek sebep değildi — geri alındı
 

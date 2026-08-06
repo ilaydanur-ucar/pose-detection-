@@ -10,6 +10,7 @@ from enum import Enum
 class CheckType(Enum):
     JOINT = "JOINT"        # 3 nokta, joint_angle kullanır
     VERTICAL = "VERTICAL"  # 2 nokta, vertical_angle kullanır
+    DISTANCE = "DISTANCE"  # 4 points, normalized_distance (ratio of two distances)
 
 
 @dataclass
