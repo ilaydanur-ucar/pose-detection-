@@ -86,12 +86,6 @@ Yeni katkı yapmadan önce `CLAUDE.md`'yi okuyun — özellikle eşik değerleri
 
 ---
 
-## Kapsam dışı
 
-Kullanıcı hesabı, sosyal özellikler, beslenme takibi, video kaydını sunucuya gönderme, store dağıtımı (yalnızca demo amaçlı gösterilecek). Gerekçeler: `personal-trainer-is-analizi.md` §2.
 
----
 
-## Ekip
-
-İş analizi ve formül spesifikasyonu / geliştirme — [ekip üyeleri buraya].
