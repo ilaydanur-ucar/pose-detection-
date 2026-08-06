@@ -43,6 +43,20 @@ class TestVerticalAngle:
         left = vertical_angle(Point(0, 0), Point(-10, 10))
         assert right == left
 
+    def test_target_above_source_is_still_near_zero(self):
+        # REGRESYON: hedef kaynağın ÜSTÜNDEYKEN (y küçük, örn. omzun üstüne
+        # kalkmış bir bilek) de dikey çizgi 0'a yakın olmalı. Bug: eskiden
+        # dy negatifken atan2 işareti dönüp ~180° veriyordu.
+        angle = vertical_angle(Point(0, 100), Point(1, 0))  # neredeyse dikey, hedef üstte
+        assert angle < 10.0
+
+    def test_above_and_below_give_same_angle_for_same_tilt(self):
+        # Aynı miktarda yatay sapma, hedef ister altta ister üstte olsun
+        # aynı dikeyden-sapma açısını vermeli (yön farketmemeli).
+        below = vertical_angle(Point(0, 0), Point(5, 10))   # hedef altta
+        above = vertical_angle(Point(0, 0), Point(5, -10))  # hedef üstte
+        assert below == above
+
 
 class TestDistance:
     def test_three_four_five_triangle(self):

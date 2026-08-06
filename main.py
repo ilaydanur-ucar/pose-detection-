@@ -3,7 +3,7 @@ Entry point — generic multi-exercise pipeline (camera -> MediaPipe -> Point ->
 geometry -> rules -> screen). No exercise-specific code here (OCP,
 ARCHITECTURE.md §3): every exercise is driven entirely by exercises.json.
 
-Run: python main.py | Keys 1-6 switch exercise | 'q' quits
+Run: python main.py | Keys 1-9 switch exercise | 'q' quits
 """
 import json
 import logging
@@ -14,6 +14,7 @@ from src.pose.processor import (
     PoseProcessor,
     LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST, LEFT_HIP, LEFT_KNEE, LEFT_ANKLE,
     RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST, RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE,
+    NOSE,
 )
 from src.pose.hand_processor import HandProcessor, HAND_CONNECTIONS
 from src.geometry.angles import joint_angle
@@ -24,7 +25,10 @@ from src.rules.engine import evaluate
 setup_logging(level=logging.DEBUG)  # kept at DEBUG for now (team decision) — revisit later
 logger = logging.getLogger(__name__)
 
-EXERCISE_KEYS = ["squat", "chair_pose", "plank", "planor", "tree_pose", "bridge"]
+EXERCISE_KEYS = [
+    "squat", "chair_pose", "plank", "planor", "tree_pose", "bridge",
+    "posture_check", "t_pose", "overhead_reach",
+]
 
 # Single place mapping exercises.json point names to MediaPipe landmark
 # indices (DRY) — reuses the indices already defined in processor.py.
@@ -35,6 +39,7 @@ NAME_TO_INDEX = {
     "left_hip": LEFT_HIP, "right_hip": RIGHT_HIP,
     "left_knee": LEFT_KNEE, "right_knee": RIGHT_KNEE,
     "left_ankle": LEFT_ANKLE, "right_ankle": RIGHT_ANKLE,
+    "nose": NOSE,
 }
 
 
@@ -51,6 +56,8 @@ def load_exercises(json_path: str) -> dict[str, Exercise]:
                 min_angle=c["min_angle"],
                 max_angle=c["max_angle"],
                 message=c["message"],
+                low_message=c.get("low_message"),
+                high_message=c.get("high_message"),
             )
             for c in data["checks"]
         ]
@@ -156,6 +163,31 @@ def draw_arm(frame, processor, landmarks, width, height,
         draw_point(frame, p, color)
 
 
+def draw_head(frame, processor, landmarks, width, height, color=(255, 0, 255)):
+    """
+    Standalone head/neck sanity-check display, same spirit as draw_arm/
+    draw_hand — purely visual, doesn't feed into any exercise check.
+    BlazePose has no dedicated "neck" landmark, so the shoulder midpoint is
+    used as a neck stand-in (plain averaging, not an angle formula — stays
+    out of geometry/, CLAUDE.md rule 2 only covers arccos/atan2 formulas).
+    """
+    visible = all(processor.is_visible(landmarks, i) for i in (NOSE, LEFT_SHOULDER, RIGHT_SHOULDER))
+    if not visible:
+        return
+
+    nose = processor.get_point(landmarks, NOSE, width, height)
+    l_shoulder = processor.get_point(landmarks, LEFT_SHOULDER, width, height)
+    r_shoulder = processor.get_point(landmarks, RIGHT_SHOULDER, width, height)
+    neck = Point(x=(l_shoulder.x + r_shoulder.x) / 2, y=(l_shoulder.y + r_shoulder.y) / 2)
+
+    nose_d = mirror_point(nose, width)
+    neck_d = mirror_point(neck, width)
+
+    draw_line(frame, nose_d, neck_d, color)
+    draw_point(frame, nose_d, color)
+    draw_point(frame, neck_d, color)
+
+
 def draw_hand(frame, hand_processor: HandProcessor, hand_landmarks, width, height, label, color=(0, 220, 220)):
     """
     Draws a detected hand's full 21-point skeleton (wrist + fingers), mirrored
@@ -183,6 +215,14 @@ def main():
     if not cap.isOpened():
         logger.error("Could not open camera")
         return
+
+    # Request a higher capture resolution (this webcam's max is 1280x720;
+    # falls back to its default, e.g. 640x480, if unsupported). More pixels
+    # to work with — NOT a wider field of view, that's fixed by the lens.
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    logger.info("Requested 1280x720, camera reports %dx%d",
+                int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 
     logger.info("Camera opened. Keys 1-%d switch exercise, 'q' quits", len(EXERCISE_KEYS))
 
@@ -235,6 +275,7 @@ def main():
             draw_arm(frame, processor, landmarks, width, height,
                      RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST,
                      "RIGHT", (255, 165, 0), (20, 130))
+            draw_head(frame, processor, landmarks, width, height)
 
             needed_names = {n for c in exercise.checks for n in c.points}
             points, missing = collect_points(processor, landmarks, needed_names, width, height)

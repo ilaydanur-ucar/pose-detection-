@@ -51,5 +51,27 @@
       { "type": "JOINT", "points": ["left_shoulder", "left_hip", "left_knee"], "min_angle": 160, "max_angle": 180, "message": "Lift your hips, form a straight line shoulder-hip-knee" },
       { "type": "JOINT", "points": ["left_hip", "left_knee", "left_ankle"], "min_angle": 80, "max_angle": 100, "message": "Bring your knees to 90 degrees" }
     ]
+  },
+  "posture_check": {
+    "name": "Posture Check",
+    "checks": [
+      { "type": "VERTICAL", "points": ["left_shoulder", "left_hip"], "min_angle": 0, "max_angle": 15, "message": "Straighten your back", "high_message": "Straighten your back, you're leaning too far forward" },
+      { "type": "VERTICAL", "points": ["left_shoulder", "right_shoulder"], "min_angle": 87, "max_angle": 93, "message": "Keep your shoulders level, don't drop one side" },
+      { "type": "DISTANCE", "points": ["nose", "left_shoulder", "nose", "right_shoulder"], "min_angle": 0.7, "max_angle": 1.3, "message": "Keep your head centered, don't tilt it to one side" }
+    ]
+  },
+  "t_pose": {
+    "name": "T-Pose",
+    "checks": [
+      { "type": "JOINT", "points": ["left_shoulder", "left_elbow", "left_wrist"], "min_angle": 160, "max_angle": 180, "message": "Straighten your arm" },
+      { "type": "VERTICAL", "points": ["left_shoulder", "left_wrist"], "min_angle": 80, "max_angle": 100, "message": "Adjust your arm height", "low_message": "Raise your arm higher, keep it horizontal", "high_message": "Lower your arm a bit, keep it horizontal" }
+    ]
+  },
+  "overhead_reach": {
+    "name": "Overhead Reach",
+    "checks": [
+      { "type": "JOINT", "points": ["left_shoulder", "left_elbow", "left_wrist"], "min_angle": 150, "max_angle": 180, "message": "Straighten your arm" },
+      { "type": "VERTICAL", "points": ["left_shoulder", "left_wrist"], "min_angle": 0, "max_angle": 35, "message": "Raise your arm", "high_message": "Raise your arm higher, closer to vertical" }
+    ]
   }
 }

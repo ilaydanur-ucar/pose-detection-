@@ -47,21 +47,29 @@ def joint_angle(a: Point, b: Point, c: Point) -> float: #type hint ile yazılmı
 
 def vertical_angle(from_point: Point, to_point: Point) -> float:
     """
-    from -> to çizgisinin DİKEY eksenden sapma açısını derece olarak döndürür.
+    from -> to çizgisinin DİKEY EKSENDEN sapma açısını derece olarak döndürür.
+    Yön (hedef kaynağın altında mı üstünde mi) fark etmez — sadece eksene
+    göre sapma ölçülür.
 
-    0°   = tam dikey (çizgi yukarı-aşağı, örn. dimdik duran gövde)
+    0°   = tam dikey (çizgi yukarı-aşağı, örn. dimdik duran gövde, ya da
+           omzun üstüne kalkmış bir bilek)
     90°  = tam yatay (çizgi sağa-sola, örn. yere paralel kol)
 
-    Örn: omuz->kalça çizgisi ile plank'ta gövde eğimini ölçmek için kullanılır.
+    Örn: omuz->kalça çizgisi ile gövde eğimini, omuz->bilek ile kolun ne
+    kadar kalktığını ölçmek için kullanılır.
     """
     dx = to_point.x - from_point.x
     dy = to_point.y - from_point.y
 
-    # atan2(dx, dy): dy'yi referans (dikey eksen) alarak dx sapmasının açısı
-    # dy'yi ilk argüman değil ikinci argüman yapmak, 0°'yi "dikey" tanımlar
-    angle_rad = np.arctan2(dx, dy) 	#iki koordinattan, güvenli ve yön-bilgili şekilde açı üretir
+    # abs(dx), abs(dy): EKSENDEN sapmayı ölçüyoruz, YÖNDEN değil — hedef
+    # kaynağın altında da üstünde de olsa "dikey" aynı şekilde 0° olmalı.
+    # (dy'nin işaretini atmadan atan2(dx, dy) kullanmak, hedef kaynağın
+    # ÜSTÜNDEYKEN [dy<0] açıyı ~180°'ye kaydırıyordu — "dikey" neredeyse
+    # "ters dikey" gibi ölçülüyordu. Örn: kol düz yukarı kalkmışken bile
+    # 170-180° dönüyordu, oysa gerçek sapma ~10°'ydi.)
+    angle_rad = np.arctan2(abs(dx), abs(dy))
 
-    return float(np.degrees(np.abs(angle_rad)))
+    return float(np.degrees(angle_rad))
 
 
 def distance(a: Point, b: Point) -> float:

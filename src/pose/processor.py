@@ -26,6 +26,10 @@ RIGHT_HIP = 24
 RIGHT_KNEE = 26
 RIGHT_ANKLE = 28
 
+# EKLENDİ — baş/boyun görseli için (main.py draw_head). BlazePose'ta gerçek
+# bir "boyun" landmark'ı yok; NOSE + omuz-orta-noktası bunun yerine kullanılıyor.
+NOSE = 0
+
 VISIBILITY_THRESHOLD = 0.6   # 0.45 denendi, gerçek sebep değildi — geri alındı
 
 

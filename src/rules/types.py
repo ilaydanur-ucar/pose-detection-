@@ -20,6 +20,8 @@ class AngleCheck:
     min_angle: float
     max_angle: float
     message: str
+    low_message: str | None = None   # shown when value < min_angle, falls back to message
+    high_message: str | None = None  # shown when value > max_angle, falls back to message
 
 
 @dataclass

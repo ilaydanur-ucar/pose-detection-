@@ -15,6 +15,15 @@ logger = logging.getLogger(__name__)
 # finger). Exposed here so callers never need to know MediaPipe internals.
 HAND_CONNECTIONS = mp.solutions.hands.HAND_CONNECTIONS
 
+# MediaPipe Hands' handedness classifier assumes the input image is MIRRORED
+# (selfie-style) — this is the opposite assumption from PoseProcessor, which
+# is deliberately fed the RAW/unmirrored frame (see main.py's "ROOT CAUSE
+# FIXED" comment) so its own left/right labels come out correct. Since we
+# feed Hands that same raw frame, its handedness output comes out reversed
+# relative to reality — so we swap it back here, once, in the sensor layer,
+# instead of leaving every caller to remember this MediaPipe-specific quirk.
+_SWAP_HANDEDNESS = {"Left": "Right", "Right": "Left"}
+
 
 class HandProcessor:
     def __init__(self):
@@ -36,7 +45,8 @@ class HandProcessor:
             return []
         hands = []
         for landmarks, handedness in zip(result.multi_hand_landmarks, result.multi_handedness):
-            label = handedness.classification[0].label
+            raw_label = handedness.classification[0].label
+            label = _SWAP_HANDEDNESS[raw_label]
             hands.append((label, landmarks))
         return hands
 

@@ -32,7 +32,9 @@ def evaluate(points: dict[str, Point], exercise: Exercise) -> list[str]:
         pts = [points[name] for name in check.points]
         angle = _CHECK_HANDLERS[check.type](pts)
 
-        if not (check.min_angle <= angle <= check.max_angle):
-            violations.append(check.message)
+        if angle < check.min_angle:
+            violations.append(check.low_message or check.message)
+        elif angle > check.max_angle:
+            violations.append(check.high_message or check.message)
 
     return violations

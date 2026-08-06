@@ -84,3 +84,37 @@ class TestCheckHandlersRegistry:
         # KeyError yerine anlaşılır bir assertion hatası alınsın diye.
         for check_type in CheckType:
             assert check_type in _CHECK_HANDLERS
+
+
+class TestDirectionalMessages:
+    """low_message/high_message: which side of the range was violated picks
+    the message; falls back to `message` when the directional one is unset."""
+
+    def _check(self, min_angle, max_angle, low_message=None, high_message=None):
+        return AngleCheck(
+            type=CheckType.VERTICAL, points=["a", "b"],
+            min_angle=min_angle, max_angle=max_angle, message="generic fallback",
+            low_message=low_message, high_message=high_message,
+        )
+
+    def test_below_min_uses_low_message(self):
+        # vertical_angle(a,b) = 0 (straight up) -> below min=80
+        ex = Exercise(name="t", checks=[self._check(80, 100, low_message="too low")])
+        pts = {"a": Point(0, 0), "b": Point(0, 10)}
+        assert evaluate(pts, ex) == ["too low"]
+
+    def test_above_max_uses_high_message(self):
+        # vertical_angle is undirected, range [0,90] -> atan2(10,4) ~= 68.2, above max=50
+        ex = Exercise(name="t", checks=[self._check(10, 50, high_message="too high")])
+        pts = {"a": Point(0, 0), "b": Point(10, -4)}
+        assert evaluate(pts, ex) == ["too high"]
+
+    def test_falls_back_to_message_when_directional_unset(self):
+        ex = Exercise(name="t", checks=[self._check(80, 100)])  # no low/high_message
+        pts = {"a": Point(0, 0), "b": Point(0, 10)}  # below min
+        assert evaluate(pts, ex) == ["generic fallback"]
+
+    def test_within_range_no_violation_regardless_of_directional_messages(self):
+        ex = Exercise(name="t", checks=[self._check(80, 100, low_message="x", high_message="y")])
+        pts = {"a": Point(0, 0), "b": Point(10, 0)}  # 90 degrees, within range
+        assert evaluate(pts, ex) == []
